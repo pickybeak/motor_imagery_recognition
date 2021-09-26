@@ -27,6 +27,11 @@ share/python-wheels/
 *.egg
 MANIFEST
 *.idea
+*.zip
+*.pkl
+*.docx
+*.hwp
+*.png
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
