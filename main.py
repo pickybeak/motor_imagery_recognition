@@ -54,6 +54,7 @@ class Recognizer(nn.Module):
                                      stride=4)
         self.elu3 = torch.nn.ELU()
         self.fc = torch.nn.Linear(4,1)
+        self.elu4 = torch.nn.ELU()
         self.ffc = torch.nn.Linear(64,1)
         self.sm = torch.nn.Sigmoid()
 
@@ -73,6 +74,7 @@ class Recognizer(nn.Module):
         # x -> (B, C, 2, 2)
         x = x.reshape(B,-1,4)
         x = self.fc(x).squeeze()
+        x = self.elu4(x)
         x = self.ffc(x)
         # x -> (B, C, 1)
         return sp, self.sm(x).squeeze()
@@ -90,19 +92,15 @@ class Model(nn.Module):
 
 if __name__ == '__main__':
 
+    cuda = torch.device('cuda:1')
     # 9 subject, 10 fold, 500 epoch
-    total_train_loss, total_train_acc = [], []
-    total_val_loss, total_val_acc = [], []
+    subject = 9
+    fold = 10
+    total_train_loss, total_train_acc = torch.empty(subject, fold, hparams.epoch), torch.empty(subject, fold, hparams.epoch),
+    total_val_loss, total_val_acc = torch.empty(subject, fold, hparams.epoch), torch.empty(subject, fold, hparams.epoch),
 
-    subject_train_loss, subject_train_acc = [], []
-    subject_val_loss, subject_val_acc = [], []
-    fold_train_loss, fold_train_acc = [], []
-    fold_val_loss, fold_val_acc = [], []
-    epoch_train_loss, epoch_train_acc = [], []
-    epoch_val_loss, epoch_val_acc = [], []
-
-    for i in range(1, 10):
-        file = 'A0%d_64x64_scipy2_cv10.pkl'%i
+    for i in range(subject):
+        file = 'A0%d_64x64_scipy2_cv10.pkl'%(i+1)
         with open(file, "rb") as f:
             dataset = pickle.load(f)
             X = dataset["X"]
@@ -110,17 +108,18 @@ if __name__ == '__main__':
             Y -=1
             folds = dataset["folds"]
 
+        X = torch.Tensor(X).to(cuda)
+        Y = torch.Tensor(Y).to(cuda)
+
         # plt.subplot(3,3,i)
-        model = Model()
+        model = Model().to(cuda)
         criterion = torch.nn.BCELoss()
         optimizer = optim.RMSprop(model.parameters(), lr=0.001)
 
         for f, (train_index, test_index) in enumerate(folds):
 
-            epoch_train_loss, epoch_train_acc = [], []
-            epoch_val_loss, epoch_val_acc = [], []
-
             for epoch in range(hparams.epoch):
+
                 running_loss = 0.0
                 running_acc = 0.0
                 per_batch = hparams.per_batch
@@ -128,8 +127,8 @@ if __name__ == '__main__':
 
                 for batch_index in range(batch_size):
                     # load data
-                    input = torch.Tensor(X[train_index][batch_index:(per_batch*(batch_index+1))])
-                    label = torch.Tensor(Y[train_index][batch_index:(per_batch*(batch_index+1))])
+                    input = X[train_index][batch_index:(per_batch*(batch_index+1))]
+                    label = Y[train_index][batch_index:(per_batch*(batch_index+1))]
                     optimizer.zero_grad()
                     bce, sparse_loss = model(input)
                     y_pred = bce > 0.5
@@ -148,38 +147,38 @@ if __name__ == '__main__':
                 train_loss = running_loss/batch_size
                 train_acc = running_acc/batch_size
 
-                print('subject%d, fold%d' % (i, f+1))
+                print('subject%d, fold%d' % (i+1, f+1))
                 print('epoch%d, train_loss: %.3f' % (epoch+1, train_loss))
                 print('epoch%d, train_accuracy: %.3f' % (epoch+1, train_acc))
 
-                epoch_train_loss.append(train_loss)
-                epoch_train_acc.append(train_acc)
+                total_train_loss[i, f, epoch] = train_loss
+                total_train_acc[i, f, epoch] = train_acc
 
                 # for validation
                 with torch.no_grad():
-                    input = torch.Tensor(X[test_index])
-                    label = torch.Tensor(Y[test_index])
+                    input = X[test_index]
+                    label = Y[test_index]
                     bce, sparse_loss = model(input)
                     y_pred = bce > 0.5
                     loss = criterion(bce, label)
                     loss += sparse_loss
                     acc = (torch.sum(y_pred == label) / y_pred.shape[0]) * 100
-                    epoch_val_loss.append(loss)
-                    epoch_val_acc.append(acc)
+                    total_val_loss[i, f, epoch] = loss
+                    total_val_acc[i, f, epoch] = acc 
                     print('------------------------epoch%d test test_loss: %.3f' % (epoch+1,loss))
                     print('------------------------epoch%d test test_accuracy: %.3f' % (epoch+1, acc))
 
             '''after fold is done'''
-            fold_train_loss.append(epoch_train_loss)
-            fold_val_loss.append(epoch_val_loss)
-            fold_train_acc.append(epoch_train_acc)
-            fold_val_acc.append(epoch_val_acc)
+            # fold_train_loss.append(epoch_train_loss)
+            # fold_val_loss.append(epoch_val_loss)
+            # fold_train_acc.append(epoch_train_acc)
+            # fold_val_acc.append(epoch_val_acc)
 
         '''after subject is done'''
-        subject_train_loss.append(fold_train_loss)
-        subject_val_loss.append(fold_val_loss)
-        subject_train_acc.append(fold_train_acc)
-        subject_val_acc.append(fold_val_acc)
+        # subject_train_loss.append(fold_train_loss)
+        # subject_val_loss.append(fold_val_loss)
+        # subject_train_acc.append(fold_train_acc)
+        # subject_val_acc.append(fold_val_acc)
         # with torch.no_grad():
         #     input = torch.Tensor(X[train_index])
         #     label = torch.Tensor(Y[train_index])
@@ -202,10 +201,10 @@ if __name__ == '__main__':
         # plt.legend(['train_loss', 'test_loss'], loc="upper right")
     '''finish'''
     print('train finished')
-    print('train_loss : ', [statistics.mean(total_train_loss[i][:][:]) for i in range(10)])
-    print('train_acc : ', [statistics.mean(total_train_acc[i][:][:]) for i in range(10)])
-    print('val_loss : ', [statistics.mean(total_val_loss[i][:][:]) for i in range(10)])
-    print('val_acc : ', [statistics.mean(total_val_acc[i][:][:]) for i in range(10)])
+    print('train_loss : ', torch.mean(total_train_loss, (1,2)))
+    print('train_acc : ', torch.mean(total_train_acc, (1,2)))
+    print('val_loss : ', torch.mean(total_val_loss, (1,2)))
+    print('val_acc : ', torch.mean(total_val_acc, (1,2)))
 
     with open('train_loss.pkl', 'wb') as f:
         pickle.dump(total_train_loss, f)
