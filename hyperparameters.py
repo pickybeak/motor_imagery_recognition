@@ -1,5 +1,6 @@
 # for train
-batch_size = 2
+# batch_size = 2
+per_batch = 20
 epoch = 500
 
 # for model
