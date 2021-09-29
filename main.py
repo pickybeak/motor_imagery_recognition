@@ -33,10 +33,10 @@ class SqueezeExcitation(nn.Module):
 class Recognizer(nn.Module):
     def __init__(self):
         super(Recognizer, self).__init__()
-        # self.acs = SqueezeExcitation(hparams.input_channel)
-        # self.se1 = SqueezeExcitation(hparams.output_channel)
-        # self.se2 = SqueezeExcitation(hparams.output_channel)
-        # self.se3 = SqueezeExcitation(hparams.output_channel)
+        self.acs = SqueezeExcitation(hparams.input_channel)
+        self.se1 = SqueezeExcitation(hparams.output_channel)
+        self.se2 = SqueezeExcitation(hparams.output_channel)
+        self.se3 = SqueezeExcitation(hparams.output_channel)
 
         self.conv1 = torch.nn.Conv2d(hparams.input_channel,
                                      hparams.output_channel,
@@ -62,23 +62,23 @@ class Recognizer(nn.Module):
     def forward(self, x):
         # x -> (B, C, H, W)
         B, _, _, _ = x.shape
-        # x, sp = self.acs(x)
+        x, sp = self.acs(x)
         x = self.conv1(x)
         x = self.elu1(x)
-        # x, _ = self.se1(x)
+        x, _ = self.se1(x)
         x = self.conv2(x)
         x = self.elu2(x)
-        # x, _ = self.se2(x)
+        x, _ = self.se2(x)
         x = self.conv3(x)
         x = self.elu3(x)
-        # x, _ = self.se3(x)
+        x, _ = self.se3(x)
         # x -> (B, C, 2, 2)
         x = x.reshape(B,-1,4)
         x = self.fc(x).squeeze()
         x = self.elu4(x)
         x = self.ffc(x)
         # x -> (B, C, 1)
-        return self.sm(x).squeeze()
+        return sp, self.sm(x).squeeze()
 
 class Model(nn.Module):
     def __init__(self):
@@ -87,9 +87,9 @@ class Model(nn.Module):
 
     def forward(self, x):
         B, _, _, _ = x.shape
-        bce = self.recognizer(x)
-        # sparse_loss = torch.norm(sparse, 1) / B
-        return bce
+        sparse, bce = self.recognizer(x)
+        sparse_loss = torch.norm(sparse, 1) / B
+        return bce, sparse_loss
 
 if __name__ == '__main__':
 
