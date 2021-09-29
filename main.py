@@ -174,7 +174,7 @@ if __name__ == '__main__':
                 # for validation
                 with torch.no_grad():
                     val_dataset = Dataset(X[test_index],Y[test_index])
-                    val_dataloader = DataLoader(dataset, shuffle=True, batch_size=hparams.per_batch, num_workers=0)
+                    val_dataloader = DataLoader(val_dataset, shuffle=True, batch_size=hparams.per_batch, num_workers=0)
                     corr = 0
                     loss = 0
                     for val_data in val_dataloader:
