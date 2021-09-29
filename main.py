@@ -6,6 +6,7 @@ import torch.optim as optim
 import pickle
 import math
 import statistics
+import time
 
 class SqueezeExcitation(nn.Module):
     def __init__(self, input_channel):
@@ -32,10 +33,10 @@ class SqueezeExcitation(nn.Module):
 class Recognizer(nn.Module):
     def __init__(self):
         super(Recognizer, self).__init__()
-        self.acs = SqueezeExcitation(hparams.input_channel)
-        self.se1 = SqueezeExcitation(hparams.output_channel)
-        self.se2 = SqueezeExcitation(hparams.output_channel)
-        self.se3 = SqueezeExcitation(hparams.output_channel)
+        # self.acs = SqueezeExcitation(hparams.input_channel)
+        # self.se1 = SqueezeExcitation(hparams.output_channel)
+        # self.se2 = SqueezeExcitation(hparams.output_channel)
+        # self.se3 = SqueezeExcitation(hparams.output_channel)
 
         self.conv1 = torch.nn.Conv2d(hparams.input_channel,
                                      hparams.output_channel,
@@ -61,23 +62,23 @@ class Recognizer(nn.Module):
     def forward(self, x):
         # x -> (B, C, H, W)
         B, _, _, _ = x.shape
-        x, sp = self.acs(x)
+        # x, sp = self.acs(x)
         x = self.conv1(x)
         x = self.elu1(x)
-        x, _ = self.se1(x)
+        # x, _ = self.se1(x)
         x = self.conv2(x)
         x = self.elu2(x)
-        x, _ = self.se2(x)
+        # x, _ = self.se2(x)
         x = self.conv3(x)
         x = self.elu3(x)
-        x, _ = self.se3(x)
+        # x, _ = self.se3(x)
         # x -> (B, C, 2, 2)
         x = x.reshape(B,-1,4)
         x = self.fc(x).squeeze()
         x = self.elu4(x)
         x = self.ffc(x)
         # x -> (B, C, 1)
-        return sp, self.sm(x).squeeze()
+        return self.sm(x).squeeze()
 
 class Model(nn.Module):
     def __init__(self):
@@ -86,9 +87,9 @@ class Model(nn.Module):
 
     def forward(self, x):
         B, _, _, _ = x.shape
-        sparse, bce = self.recognizer(x)
-        sparse_loss = torch.norm(sparse, 1) / B
-        return bce, sparse_loss
+        bce = self.recognizer(x)
+        # sparse_loss = torch.norm(sparse, 1) / B
+        return bce
 
 if __name__ == '__main__':
 
@@ -105,23 +106,22 @@ if __name__ == '__main__':
             dataset = pickle.load(f)
             X = dataset["X"]
             Y = dataset["y"]
-            Y -=1
             folds = dataset["folds"]
 
         X = torch.Tensor(X).to(cuda)
         Y = torch.Tensor(Y).to(cuda)
-
         # plt.subplot(3,3,i)
-        model = Model().to(cuda)
-        criterion = torch.nn.BCELoss()
-        optimizer = optim.RMSprop(model.parameters(), lr=0.001)
 
         for f, (train_index, test_index) in enumerate(folds):
 
-            for epoch in range(hparams.epoch):
+            model = Model().to(cuda)
+            criterion = torch.nn.BCELoss()
+            optimizer = optim.RMSprop(model.parameters(), lr=0.001)
 
+            for epoch in range(hparams.epoch):
+                start = time.time()
                 running_loss = 0.0
-                running_acc = 0.0
+                running_acc = 0.0 
                 per_batch = hparams.per_batch
                 batch_size = math.ceil(X[train_index].shape[0] / per_batch)
 
@@ -150,6 +150,9 @@ if __name__ == '__main__':
                 print('subject%d, fold%d' % (i+1, f+1))
                 print('epoch%d, train_loss: %.3f' % (epoch+1, train_loss))
                 print('epoch%d, train_accuracy: %.3f' % (epoch+1, train_acc))
+
+                end = time.time()
+                print('epoch time : ',end-start)
 
                 total_train_loss[i, f, epoch] = train_loss
                 total_train_acc[i, f, epoch] = train_acc
@@ -206,12 +209,12 @@ if __name__ == '__main__':
     print('val_loss : ', torch.mean(total_val_loss, (1,2)))
     print('val_acc : ', torch.mean(total_val_acc, (1,2)))
 
-    with open('train_loss.pkl', 'wb') as f:
+    with open('train_loss_2.pkl', 'wb') as f:
         pickle.dump(total_train_loss, f)
-    with open('train_acc.pkl', 'wb') as f:
+    with open('train_acc_2.pkl', 'wb') as f:
         pickle.dump(total_train_acc, f)
-    with open('val_loss.pkl', 'wb') as f:
+    with open('val_loss_2.pkl', 'wb') as f:
         pickle.dump(total_val_loss, f)
-    with open('val_acc.pkl', 'wb') as f:
+    with open('val_acc_2.pkl', 'wb') as f:
         pickle.dump(total_val_acc, f)
     # plt.show()
