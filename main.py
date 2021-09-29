@@ -23,8 +23,8 @@ class Dataset(torch.utils.data.Dataset):
 class SqueezeExcitation(nn.Module):
     def __init__(self, input_channel):
         super(SqueezeExcitation, self).__init__()
-        self.fc1 = torch.nn.Linear(input_channel, int(input_channel/hparams.r))
-        self.fc2 = torch.nn.Linear(int(input_channel/hparams.r), input_channel)
+        self.fc1 = torch.nn.Linear(input_channel, int(input_channel/hparams.r), bias=False)
+        self.fc2 = torch.nn.Linear(int(input_channel/hparams.r), input_channel, bias=False)
         self.sm = torch.nn.Sigmoid()
         self.relu = torch.nn.ReLU()
 
@@ -174,14 +174,14 @@ if __name__ == '__main__':
                 # for validation
                 with torch.no_grad():
                     val_dataset = Dataset(X[test_index],Y[test_index])
-                    val_dataloader = DataLoader(val_dataset, shuffle=True, batch_size=hparams.per_batch, num_workers=0)
+                    val_dataloader = DataLoader(val_dataset, batch_size=hparams.per_batch, num_workers=0)
                     corr = 0
                     loss = 0
                     for val_data in val_dataloader:
                         val_input, val_label = val_data
                         bce, sparse_loss = model(val_input)
                         y_pred = bce > 0.5
-                        loss = criterion(bce, val_label)
+                        loss += criterion(bce, val_label)
                         loss += sparse_loss
                         corr += torch.sum(y_pred == val_label).item()
                     loss /= len(val_dataset)
@@ -206,12 +206,17 @@ if __name__ == '__main__':
     print('val_loss : ', torch.mean(total_val_loss, (1,2)))
     print('val_acc : ', torch.mean(total_val_acc, (1,2)))
 
-    with open('train_loss_3.pkl', 'wb') as f:
-        pickle.dump(total_train_loss, f)
-    with open('train_acc_3.pkl', 'wb') as f:
-        pickle.dump(total_train_acc, f)
-    with open('val_loss_3.pkl', 'wb') as f:
-        pickle.dump(total_val_loss, f)
-    with open('val_acc_3.pkl', 'wb') as f:
-        pickle.dump(total_val_acc, f)
+    total_train_loss_cpu = total_train_loss.to('cpu')
+    total_train_acc_cpu = total_train_acc.to('cpu')
+    total_val_loss_cpu = total_val_loss.to('cpu')
+    total_val_acc_cpu = total_val_acc.to('cpu')
+
+    with open('train_loss_9.pkl', 'wb') as f:
+        pickle.dump(total_train_loss_cpu, f)
+    with open('train_acc_9.pkl', 'wb') as f:
+        pickle.dump(total_train_acc_cpu, f)
+    with open('val_loss_9.pkl', 'wb') as f:
+        pickle.dump(total_val_loss_cpu, f)
+    with open('val_acc_9.pkl', 'wb') as f:
+        pickle.dump(total_val_acc_cpu, f)
     # plt.show()
