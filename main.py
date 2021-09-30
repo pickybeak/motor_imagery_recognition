@@ -46,9 +46,6 @@ class Recognizer(nn.Module):
     def __init__(self):
         super(Recognizer, self).__init__()
         self.acs = SqueezeExcitation(hparams.input_channel)
-        self.se1 = SqueezeExcitation(hparams.output_channel)
-        self.se2 = SqueezeExcitation(hparams.output_channel)
-        self.se3 = SqueezeExcitation(hparams.output_channel)
 
         self.conv1 = torch.nn.Conv2d(hparams.input_channel,
                                      hparams.output_channel,
@@ -56,16 +53,19 @@ class Recognizer(nn.Module):
                                      stride=2,
                                      padding=1)
         self.elu1 = torch.nn.ELU()
+        self.se1 = SqueezeExcitation(hparams.output_channel)
         self.conv2 = torch.nn.Conv2d(hparams.output_channel,
                                      hparams.output_channel,
                                      kernel_size=4,
                                      stride=4)
         self.elu2 = torch.nn.ELU()
+        self.se2 = SqueezeExcitation(hparams.output_channel)
         self.conv3 = torch.nn.Conv2d(hparams.output_channel,
                                      hparams.output_channel,
                                      kernel_size=4,
                                      stride=4)
         self.elu3 = torch.nn.ELU()
+        self.se3 = SqueezeExcitation(hparams.output_channel)
         self.fc = torch.nn.Linear(4,1)
         self.elu4 = torch.nn.ELU()
         self.ffc = torch.nn.Linear(64,1)
@@ -127,6 +127,7 @@ if __name__ == '__main__':
 
         for f, (train_index, test_index) in enumerate(folds):
 
+            torch.manual_seed(2021010556)
             model = Model().to(cuda)
             criterion = torch.nn.BCELoss()
             optimizer = optim.RMSprop(model.parameters(), lr=0.001)
