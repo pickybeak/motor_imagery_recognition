@@ -139,7 +139,6 @@ if __name__ == '__main__':
                 running_loss = 0.0
                 running_correct = 0 
                 per_batch = hparams.per_batch
-                batch_size = math.ceil(X[train_index].shape[0] / per_batch)
 
                 for data in dataloader:
                     # load data
@@ -152,7 +151,7 @@ if __name__ == '__main__':
                     loss.backward()
                     optimizer.step()
 
-                    running_loss += loss.item()
+                    running_loss += loss.item() * input.shape[0]
                     running_correct += torch.sum(y_pred == label) 
 
                     '''after batch is done'''
@@ -181,8 +180,8 @@ if __name__ == '__main__':
                         val_input, val_label = val_data
                         bce, sparse_loss = model(val_input)
                         y_pred = bce > 0.5
-                        loss += criterion(bce, val_label)
-                        loss += sparse_loss
+                        loss += criterion(bce, val_label) * val_input.shape[0]
+                        loss += sparse_loss * val_input.shape[0]
                         corr += torch.sum(y_pred == val_label).item()
                     loss /= len(val_dataset)
                     total_val_loss[i, f, epoch] = loss
