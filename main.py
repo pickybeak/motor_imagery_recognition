@@ -9,6 +9,9 @@ import math
 import statistics
 import time
 
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, x, y):
         self.x = x
@@ -211,12 +214,12 @@ if __name__ == '__main__':
     total_val_loss_cpu = total_val_loss.to('cpu')
     total_val_acc_cpu = total_val_acc.to('cpu')
 
-    with open('train_loss_9.pkl', 'wb') as f:
+    with open('train_loss_20.pkl', 'wb') as f:
         pickle.dump(total_train_loss_cpu, f)
-    with open('train_acc_9.pkl', 'wb') as f:
+    with open('train_acc_20.pkl', 'wb') as f:
         pickle.dump(total_train_acc_cpu, f)
-    with open('val_loss_9.pkl', 'wb') as f:
+    with open('val_loss_20.pkl', 'wb') as f:
         pickle.dump(total_val_loss_cpu, f)
-    with open('val_acc_9.pkl', 'wb') as f:
+    with open('val_acc_20.pkl', 'wb') as f:
         pickle.dump(total_val_acc_cpu, f)
     # plt.show()
